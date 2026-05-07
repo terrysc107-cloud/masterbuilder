@@ -1,175 +1,122 @@
-# Ruflo — Claude Code Configuration
+# Masterbuilder — Claude Code Instructions
+
+This is a Ruflo-powered multi-agent build system. When you open this repo,
+follow the activation and build instructions below exactly.
+
+## On First Open (New Project From Template)
+
+Run this setup sequence once:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ruvnet/ruflo/main/scripts/install.sh | bash --full
+ruflo init --full
+ruflo daemon start && ruflo memory init && ruflo swarm init
+```
+
+Then ask the user: "What are you building, who is it for, and what does success look like?"
+Write their answers to `memory/DECISIONS.md` under `## Product Brief` before doing anything else.
+
+## On Every Session (Resuming a Project)
+
+Ruflo auto-starts via the session hook. Confirm it's running:
+
+```bash
+ruflo swarm status
+```
+
+Then read `memory/DECISIONS.md` to get current context before responding to any task.
+
+## How to Build
+
+This system uses 11 phases. Each phase has a Ruflo workflow in `workflows/`.
+
+**Run a phase:**
+```bash
+./workflows/run-phase.sh 01   # Phase 01: Product Clarity
+./workflows/run-phase.sh 02   # Phase 02: Core User Flow
+# ... through 11
+```
+
+**Always complete phases in order.** Do not skip unless the user explicitly instructs it.
+
+**Phase sequence:**
+| # | Phase | Lead Agent |
+|---|-------|-----------|
+| 01 | Product Clarity | Product Architect |
+| 02 | Core User Flow | Flow Architect |
+| 03 | Frontend Foundation | Frontend Builder |
+| 04 | Core Experience Completion | Frontend Builder |
+| 05 | Content & Resource System | Content Systems Builder |
+| 06 | Assessment & Feedback Layer | Assessment Builder |
+| 07 | Offer & Monetization | Offer Strategist |
+| 08 | Backend & Data Reality | Backend Builder |
+| 09 | Intelligence & Personalization | Systems Architect |
+| 10 | Production Hardening | Verifier |
+| 11 | Launch Readiness | Chief Builder |
+
+## The Agent Team
+
+13 specialists. Each owns a domain. Only one leads per phase.
+
+- **Chief Builder** — scope control, signoff, launch
+- **Scout** — repo audit, reality check
+- **Product Architect** — product promise, user outcomes
+- **Flow Architect** — onboarding, navigation, momentum
+- **Frontend Builder** — UI implementation
+- **Design Auditor** — hierarchy, accessibility, polish
+- **Content Systems Builder** — prompts, resources, structured assets
+- **Assessment Builder** — checkpoints, feedback loops
+- **Offer Strategist** — pricing, premium paths
+- **Backend Builder** — auth, persistence, APIs
+- **Systems Architect** — architecture, long-term shape
+- **Verifier** — regression, definition of done
+- **Learning Steward** — captures decisions, improves the system
+
+## Memory Files (Agents Write Here Automatically)
+
+- `memory/DECISIONS.md` — what was decided and why
+- `memory/LEARNINGS.md` — what was discovered
+- `memory/PATTERNS.md` — reusable patterns
+- `memory/DEBT.md` — deferred items and known gaps
+
+Always read these before starting any task. Agents write to them after each phase.
 
 ## Rules
 
 - Do what has been asked; nothing more, nothing less
-- NEVER create files unless absolutely necessary — prefer editing existing files
-- NEVER create documentation files unless explicitly requested
-- NEVER save working files or tests to root — use `/src`, `/tests`, `/docs`, `/config`, `/scripts`
-- ALWAYS read a file before editing it
+- Complete one phase fully before starting the next
+- ALWAYS read `memory/DECISIONS.md` before any task
+- NEVER create files unless the phase contract requires it
 - NEVER commit secrets, credentials, or .env files
 - Keep files under 500 lines
 - Validate input at system boundaries
 
-## Agent Comms (SendMessage-First Coordination)
+## Agent Coordination (SendMessage-First)
 
-Named agents coordinate via `SendMessage`, not polling or shared state.
-
-```
-Lead (you) ←→ architect ←→ developer ←→ tester ←→ reviewer
-              (named agents message each other directly)
-```
-
-### Spawning a Coordinated Team
+Agents coordinate via `SendMessage`, not polling.
 
 ```javascript
-// ALL agents in ONE message, each knows WHO to message next
-Agent({ prompt: "Research the codebase. SendMessage findings to 'architect'.",
-  subagent_type: "researcher", name: "researcher", run_in_background: true })
-Agent({ prompt: "Wait for 'researcher'. Design solution. SendMessage to 'coder'.",
-  subagent_type: "system-architect", name: "architect", run_in_background: true })
-Agent({ prompt: "Wait for 'architect'. Implement it. SendMessage to 'tester'.",
-  subagent_type: "coder", name: "coder", run_in_background: true })
-Agent({ prompt: "Wait for 'coder'. Write tests. SendMessage results to 'reviewer'.",
-  subagent_type: "tester", name: "tester", run_in_background: true })
-Agent({ prompt: "Wait for 'tester'. Review code quality and security.",
-  subagent_type: "reviewer", name: "reviewer", run_in_background: true })
-
-// Kick off the pipeline
-SendMessage({ to: "researcher", summary: "Start", message: "[task context]" })
+// Spawn ALL agents in ONE message
+Agent({ prompt: "...", name: "lead", run_in_background: true })
+Agent({ prompt: "Wait for lead. ...", name: "support", run_in_background: true })
+// Then kick off
+SendMessage({ to: "lead", message: "[context]" })
 ```
 
-### Patterns
+- ALWAYS name agents so they are addressable
+- After spawning: STOP and wait — agents message back when done
+- NEVER poll status
 
-| Pattern | Flow | Use When |
-|---------|------|----------|
-| **Pipeline** | A → B → C → D | Sequential dependencies (feature dev) |
-| **Fan-out** | Lead → A, B, C → Lead | Independent parallel work (research) |
-| **Supervisor** | Lead ↔ workers | Ongoing coordination (complex refactor) |
+## Swarm Config
 
-### Rules
+- Topology: hierarchical-mesh
+- Max Agents: 15
+- Memory: hybrid + HNSW
 
-- ALWAYS name agents — `name: "role"` makes them addressable
-- ALWAYS include comms instructions in prompts — who to message, what to send
-- Spawn ALL agents in ONE message with `run_in_background: true`
-- After spawning: STOP, tell user what's running, wait for results
-- NEVER poll status — agents message back or complete automatically
+## Key Docs
 
-## Swarm & Routing
-
-### Config
-- **Topology**: hierarchical-mesh (anti-drift)
-- **Max Agents**: 15
-- **Memory**: hybrid
-- **HNSW**: Enabled
-- **Neural**: Enabled
-
-```bash
-npx @claude-flow/cli@latest swarm init --topology hierarchical --max-agents 8 --strategy specialized
-```
-
-### Agent Routing
-
-| Task | Agents | Topology |
-|------|--------|----------|
-| Bug Fix | researcher, coder, tester | hierarchical |
-| Feature | architect, coder, tester, reviewer | hierarchical |
-| Refactor | architect, coder, reviewer | hierarchical |
-| Performance | perf-engineer, coder | hierarchical |
-| Security | security-architect, auditor | hierarchical |
-
-### When to Swarm
-- **YES**: 3+ files, new features, cross-module refactoring, API changes, security, performance
-- **NO**: single file edits, 1-2 line fixes, docs updates, config changes, questions
-
-### 3-Tier Model Routing
-
-| Tier | Handler | Use Cases |
-|------|---------|-----------|
-| 1 | Agent Booster (WASM) | Simple transforms — skip LLM, use Edit directly |
-| 2 | Haiku | Simple tasks, low complexity |
-| 3 | Sonnet/Opus | Architecture, security, complex reasoning |
-
-## Memory & Learning
-
-### Before Any Task
-```bash
-npx @claude-flow/cli@latest memory search --query "[task keywords]" --namespace patterns
-npx @claude-flow/cli@latest hooks route --task "[task description]"
-```
-
-### After Success
-```bash
-npx @claude-flow/cli@latest memory store --namespace patterns --key "[name]" --value "[what worked]"
-npx @claude-flow/cli@latest hooks post-task --task-id "[id]" --success true --store-results true
-```
-
-### MCP Tools (use `ToolSearch("keyword")` to discover)
-
-| Category | Key Tools |
-|----------|-----------|
-| **Memory** | `memory_store`, `memory_search`, `memory_search_unified` |
-| **Bridge** | `memory_import_claude`, `memory_bridge_status` |
-| **Swarm** | `swarm_init`, `swarm_status`, `swarm_health` |
-| **Agents** | `agent_spawn`, `agent_list`, `agent_status` |
-| **Hooks** | `hooks_route`, `hooks_post-task`, `hooks_worker-dispatch` |
-| **Security** | `aidefence_scan`, `aidefence_is_safe`, `aidefence_has_pii` |
-| **Hive-Mind** | `hive-mind_init`, `hive-mind_consensus`, `hive-mind_spawn` |
-
-### Background Workers
-
-| Worker | When |
-|--------|------|
-| `audit` | After security changes |
-| `optimize` | After performance work |
-| `testgaps` | After adding features |
-| `map` | Every 5+ file changes |
-| `document` | After API changes |
-
-```bash
-npx @claude-flow/cli@latest hooks worker dispatch --trigger audit
-```
-
-## Agents
-
-**Core**: `coder`, `reviewer`, `tester`, `planner`, `researcher`
-**Architecture**: `system-architect`, `backend-dev`, `mobile-dev`
-**Security**: `security-architect`, `security-auditor`
-**Performance**: `performance-engineer`, `perf-analyzer`
-**Coordination**: `hierarchical-coordinator`, `mesh-coordinator`, `adaptive-coordinator`
-**GitHub**: `pr-manager`, `code-review-swarm`, `issue-tracker`, `release-manager`
-
-Any string works as a custom agent type.
-
-## Build & Test
-
-- ALWAYS run tests after code changes
-- ALWAYS verify build succeeds before committing
-
-```bash
-npm run build && npm test
-```
-
-## CLI Quick Reference
-
-```bash
-npx @claude-flow/cli@latest init --wizard           # Setup
-npx @claude-flow/cli@latest swarm init --v3-mode     # Start swarm
-npx @claude-flow/cli@latest memory search --query "" # Vector search
-npx @claude-flow/cli@latest hooks route --task ""    # Route to agent
-npx @claude-flow/cli@latest doctor --fix             # Diagnostics
-npx @claude-flow/cli@latest security scan            # Security scan
-npx @claude-flow/cli@latest performance benchmark    # Benchmarks
-```
-
-26 commands, 140+ subcommands. Use `--help` on any command for details.
-
-## Setup
-
-```bash
-claude mcp add claude-flow -- npx -y @claude-flow/cli@latest
-npx @claude-flow/cli@latest daemon start
-npx @claude-flow/cli@latest doctor --fix
-```
-
-**Agent tool** handles execution (agents, files, code, git). **MCP tools** handle coordination (swarm, memory, hooks). **CLI** is the same via Bash.
+- `docs/TEAM.md` — full agent roster
+- `docs/PHASE-MODEL.md` — phase goals and support structure
+- `docs/MASTER-PLAN.md` — how to run the build OS
+- `docs/AGENT-PROMPTS.md` — reusable agent prompts
+- `BOOTSTRAP.md` — full setup guide
