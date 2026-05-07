@@ -9,10 +9,7 @@ build/
 coverage/
 
 # Ruflo runtime files
-.claude-flow/daemon.pid
-.claude-flow/swarm/
-.claude-flow/sessions/
-.claude-flow/logs/
+.claude-flow/
 .claude/memory.db
 .swarm/
 ruvector.db
