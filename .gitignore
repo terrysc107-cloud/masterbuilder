@@ -7,3 +7,12 @@ build/
 .env.local
 .env.*.local
 coverage/
+
+# Ruflo runtime files
+.claude-flow/daemon.pid
+.claude-flow/swarm/
+.claude-flow/sessions/
+.claude-flow/logs/
+.claude/memory.db
+.swarm/
+ruvector.db
